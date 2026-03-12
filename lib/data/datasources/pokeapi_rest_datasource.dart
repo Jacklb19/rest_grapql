@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../../domain/entities/pokemon.dart';
 
@@ -6,26 +7,35 @@ class PokeApiRestDatasource {
 
   static const String _baseUrl = 'https://pokeapi.co/api/v2';
 
+  // Campos que la app REALMENTE usa de los ~47 que REST retorna
+  static const List<String> _usedFields = [
+    'id', 'name', 'height', 'weight', 'base_experience',
+    'types', 'abilities', 'stats', 'sprites',
+  ];
+
   PokeApiRestDatasource()
-      : _dio = Dio(
-    BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    ),
-  );
+      : _dio = Dio(BaseOptions(
+    baseUrl: _baseUrl,
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
 
   Future<Pokemon> getPokemon(String nameOrId) async {
-    final stopwatch = Stopwatch()..start();
+    final sw = Stopwatch()..start();
 
     try {
-      final response =
-      await _dio.get('/pokemon/$nameOrId');
-      stopwatch.stop();
+      final response = await _dio.get('/pokemon/$nameOrId');
+      sw.stop();
 
       final data = response.data as Map<String, dynamic>;
 
-      // REST retorna TODO — nosotros filtramos solo lo que necesitamos
+      // Medimos el payload real
+      final rawJson = json.encode(data);
+      final payloadBytes = utf8.encode(rawJson).length;
+
+      // Todos los campos raíz que REST retornó
+      final allFields = data.keys.toList();
+
       final types = (data['types'] as List)
           .map((t) => t['type']['name'] as String)
           .toList();
@@ -57,10 +67,13 @@ class PokeApiRestDatasource {
         stats: stats,
         imageUrl: imageUrl,
         source: 'REST',
-        fetchDuration: stopwatch.elapsed,
+        fetchDuration: sw.elapsed,
+        allFieldsReceived: allFields,
+        fieldsUsed: _usedFields,
+        payloadBytes: payloadBytes,
       );
     } on DioException catch (e) {
-      stopwatch.stop();
+      sw.stop();
       if (e.response?.statusCode == 404) {
         throw Exception('Pokémon "$nameOrId" no encontrado.');
       }

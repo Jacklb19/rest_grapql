@@ -14,8 +14,13 @@ class Pokemon {
   final List<String> abilities;
   final List<PokemonStat> stats;
   final String? imageUrl;
-  final String source; // 'REST' o 'GraphQL'
+  final String source;
   final Duration fetchDuration;
+
+  // Nuevos campos para comparación de payload
+  final List<String> allFieldsReceived;  // todos los campos que llegaron
+  final List<String> fieldsUsed;         // solo los que la app usó
+  final int payloadBytes;                // tamaño real en bytes
 
   const Pokemon({
     required this.id,
@@ -28,6 +33,15 @@ class Pokemon {
     required this.stats,
     required this.source,
     required this.fetchDuration,
+    required this.allFieldsReceived,
+    required this.fieldsUsed,
+    required this.payloadBytes,
     this.imageUrl,
   });
+
+  int get wastedFields => allFieldsReceived.length - fieldsUsed.length;
+  double get efficiencyPercent =>
+      allFieldsReceived.isEmpty
+          ? 100
+          : (fieldsUsed.length / allFieldsReceived.length) * 100;
 }

@@ -1,22 +1,26 @@
+import 'dart:convert';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../domain/entities/pokemon.dart';
 
 class PokeApiGraphqlDatasource {
   late final GraphQLClient _client;
 
-  static const String _endpoint =
-      'https://beta.pokeapi.co/graphql/v1beta';
+  static const String _endpoint = 'https://beta.pokeapi.co/graphql/v1beta';
+
+  // Exactamente los campos que pedimos — ni uno más
+  static const List<String> _requestedFields = [
+    'id', 'name', 'height', 'weight', 'base_experience',
+    'pokemon_v2_pokemontypes', 'pokemon_v2_pokemonabilities',
+    'pokemon_v2_pokemonstats', 'pokemon_v2_pokemonsprites',
+  ];
 
   PokeApiGraphqlDatasource() {
-    final httpLink = HttpLink(_endpoint);
     _client = GraphQLClient(
-      link: httpLink,
+      link: HttpLink(_endpoint),
       cache: GraphQLCache(store: InMemoryStore()),
     );
   }
 
-  // GraphQL: pedimos EXACTAMENTE los campos que necesitamos.
-  // REST hubiera traído 200+ campos — aquí solo vienen estos.
   static const String _pokemonQuery = r'''
     query GetPokemon($name: String!) {
       pokemon_v2_pokemon(where: {name: {_eq: $name}}) {
@@ -26,20 +30,14 @@ class PokeApiGraphqlDatasource {
         weight
         base_experience
         pokemon_v2_pokemontypes {
-          pokemon_v2_type {
-            name
-          }
+          pokemon_v2_type { name }
         }
         pokemon_v2_pokemonabilities {
-          pokemon_v2_ability {
-            name
-          }
+          pokemon_v2_ability { name }
         }
         pokemon_v2_pokemonstats {
           base_stat
-          pokemon_v2_stat {
-            name
-          }
+          pokemon_v2_stat { name }
         }
         pokemon_v2_pokemonsprites {
           sprites
@@ -49,17 +47,15 @@ class PokeApiGraphqlDatasource {
   ''';
 
   Future<Pokemon> getPokemon(String nameOrId) async {
-    final stopwatch = Stopwatch()..start();
+    final sw = Stopwatch()..start();
 
-    final result = await _client.query(
-      QueryOptions(
-        document: gql(_pokemonQuery),
-        variables: {'name': nameOrId},
-        fetchPolicy: FetchPolicy.networkOnly,
-      ),
-    );
+    final result = await _client.query(QueryOptions(
+      document: gql(_pokemonQuery),
+      variables: {'name': nameOrId},
+      fetchPolicy: FetchPolicy.networkOnly,
+    ));
 
-    stopwatch.stop();
+    sw.stop();
 
     if (result.hasException) {
       throw Exception(
@@ -72,6 +68,10 @@ class PokeApiGraphqlDatasource {
     }
 
     final data = list.first as Map<String, dynamic>;
+
+    // Medimos el payload exacto que llegó
+    final rawJson = json.encode(data);
+    final payloadBytes = utf8.encode(rawJson).length;
 
     final types = (data['pokemon_v2_pokemontypes'] as List)
         .map((t) => t['pokemon_v2_type']['name'] as String)
@@ -88,16 +88,12 @@ class PokeApiGraphqlDatasource {
     ))
         .toList();
 
-    // Los sprites en GraphQL vienen como JSON string dentro del campo sprites
     String? imageUrl;
     try {
-      final spritesRaw =
-          (data['pokemon_v2_pokemonsprites'] as List).firstOrNull;
+      final spritesRaw = (data['pokemon_v2_pokemonsprites'] as List).firstOrNull;
       if (spritesRaw != null) {
-        final spritesMap =
-        spritesRaw['sprites'] as Map<String, dynamic>?;
-        imageUrl = spritesMap?['other']?['official-artwork']
-        ?['front_default'] as String? ??
+        final spritesMap = spritesRaw['sprites'] as Map<String, dynamic>?;
+        imageUrl = spritesMap?['other']?['official-artwork']?['front_default'] as String? ??
             spritesMap?['front_default'] as String?;
       }
     } catch (_) {}
@@ -113,7 +109,10 @@ class PokeApiGraphqlDatasource {
       stats: stats,
       imageUrl: imageUrl,
       source: 'GraphQL',
-      fetchDuration: stopwatch.elapsed,
+      fetchDuration: sw.elapsed,
+      allFieldsReceived: _requestedFields, // GraphQL solo trajo lo que pedimos
+      fieldsUsed: _requestedFields,         // 100% de eficiencia
+      payloadBytes: payloadBytes,
     );
   }
 }
