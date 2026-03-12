@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'presentation/screens/pokemon_compare_screen.dart';
+import 'presentation/screens/home_screen.dart';
 
 void main() {
-  runApp(
-    const ProviderScope(
-      child: PokemonApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: PokeDexApp()));
 }
 
-class PokemonApp extends StatelessWidget {
-  const PokemonApp({super.key});
+class PokeDexApp extends StatelessWidget {
+  const PokeDexApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'REST vs GraphQL',
+      title: 'PokéDex',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: const ColorScheme.dark(
@@ -26,7 +22,7 @@ class PokemonApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF0F1117),
         useMaterial3: true,
       ),
-      home: const PokemonCompareScreen(),
+      home: const HomeScreen(),
     );
   }
 }

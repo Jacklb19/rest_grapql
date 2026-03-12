@@ -13,7 +13,8 @@ const _used = Color(0xFF4ADE80);
 const _wasted = Color(0xFF475569);
 
 class PokemonCompareScreen extends ConsumerStatefulWidget {
-  const PokemonCompareScreen({super.key});
+  final String? initialSearch;
+  const PokemonCompareScreen({super.key, this.initialSearch});
 
   @override
   ConsumerState<PokemonCompareScreen> createState() =>
@@ -23,6 +24,17 @@ class PokemonCompareScreen extends ConsumerStatefulWidget {
 class _PokemonCompareScreenState extends ConsumerState<PokemonCompareScreen> {
   final _controller = TextEditingController();
   final _suggestions = ['pikachu', 'charizard', 'mewtwo', 'gengar', 'lucario', 'eevee'];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialSearch != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _controller.text = widget.initialSearch!;
+        _search(widget.initialSearch);
+      });
+    }
+  }
 
   void _search([String? name]) {
     final query = name ?? _controller.text;
